@@ -1,0 +1,10 @@
+[package]
+name = "borink-process"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "2"
+camino = "1"
+duct = "0.13"
+borink-error = { path = "../borink-error" }

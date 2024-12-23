@@ -1,0 +1,15 @@
+[package]
+name = "borink-git"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+thiserror = "2"
+tracing = "0.1"
+relative-path = "1.9.3"
+camino = "1"
+# put this behind a feature and configurable by applications
+spinoff = { version = "=0.8.0", features = ["line"] }
+sha2 = "0.10"
+borink-error = { path = "../borink-error" }
+borink-process = { path = "../borink-process" }

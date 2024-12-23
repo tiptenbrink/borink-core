@@ -1,0 +1,15 @@
+[package]
+name = "borink-kv"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "2"
+camino = "1"
+rusqlite = { version = "0.32.0", default-features = false }
+ouroboros = "0.18.4"
+borink-error = { path = "../borink-error" }
+
+[features]
+default = ["bundled-db"]
+bundled-db = ["rusqlite/bundled"]
