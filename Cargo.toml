@@ -4,5 +4,7 @@ members = [
     "borink-git",
     "borink-kv",
     "borink-error",
-    "borink-process"
+    "borink-process",
+    "borink-git-serve",
+    "borink-git-serve-cli"
 ]

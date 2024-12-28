@@ -13,3 +13,11 @@ spinoff = { version = "=0.8.0", features = ["line"] }
 sha2 = "0.10"
 borink-error = { path = "../borink-error" }
 borink-process = { path = "../borink-process" }
+borink-kv = { path = "../borink-kv", optional = true }
+redb = { version = "2.3.0", optional = true }
+papaya = { version = "0.1.6", optional = true }
+
+[features]
+default-features = []
+kv = ["dep:borink-kv"]
+guarded = ["dep:redb", "dep:papaya"]

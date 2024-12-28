@@ -6,7 +6,7 @@ use tracing::debug;
 use borink_error::{ContextSource, StringContext, WrapErrorWithContext};
 use core::fmt::Debug;
 use std::{
-    fs::{self, remove_dir_all, File}, io::{self, Error as IOError, Write}, path::Path
+    borrow::Borrow, fs::{self, remove_dir_all, File}, io::{self, Error as IOError, Write}, path::Path
 };
 
 pub fn is_hexadecimal(s: &str) -> bool {
@@ -29,8 +29,8 @@ pub enum GitError {
     InvalidPattern(StringContext),
     #[error("normalized subpath {0} is not a relative path inside the repository without '..' components")]
     InvalidPath(StringContext),
-    #[error("git absent error: {0}")]
-    Absent(StringContext),
+    // #[error("git absent error: {0}")]
+    // Absent(StringContext),
 }
 
 
@@ -133,9 +133,23 @@ impl CommitHashBuf {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct CommitHash(str);
+
+impl Borrow<CommitHash> for CommitHashBuf {
+    fn borrow(&self) -> &CommitHash {
+        &CommitHash::from_str_unchecked(self.as_str())
+    }
+}
+
+impl ToOwned for CommitHash {
+    type Owned = CommitHashBuf;
+
+    fn to_owned(&self) -> Self::Owned {
+        CommitHashBuf::from_string_unchecked(self.as_str().to_owned())
+    }
+}
 
 #[derive(Debug)]
 pub struct GitAddress<'a> {
@@ -213,21 +227,29 @@ impl CommitHashBuf {
     }
 }
 
+/// A single string that uniquely represents a [`GitAddress`], implemented as a hexadecimal
+/// representation of a hashed [`GitAddress`].
 #[derive(Eq, Hash, PartialEq, Clone)]
 #[repr(transparent)]
 pub struct StoreAddress(String);
 
-// impl StoreAddress {
-//     pub fn as_str(&self) -> &str {
-//         self.0.as_str()
-//     }
+impl StoreAddress {
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 
-//     pub fn as_bytes(&self) -> &[u8] {
-//         self.0.as_bytes()
-//     }
-// }
+    pub fn as_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
 
-pub fn store_address(address: &GitAddress) -> StoreAddress {
+impl<'a> From<&GitAddress<'a>> for StoreAddress {
+    fn from(address: &GitAddress<'a>) -> Self {
+        store_address(&address)
+    }
+}
+
+fn store_address(address: &GitAddress) -> StoreAddress {
     let mut hasher = Sha256::new();
     hasher.update(address.repository_url.0);
     hasher.update(&address.commit_hash.0);
@@ -416,6 +438,25 @@ pub struct GetOptions<'a> {
     verify_integrity: bool,
     mutate_store: bool,
     store_dir: &'a Utf8Path,
+}
+
+impl<'a> GetOptions<'a> {
+    pub fn new(store_dir: &'a Utf8Path, mutate_store: bool, verify_integrity: bool) -> Self {
+        Self {
+            store_dir,
+            mutate_store,
+            verify_integrity
+        }
+    }
+
+    pub fn with_store_dir_mutate(store_dir: &'a Utf8Path, mutate_store: bool) -> Self {
+        Self {
+            // Will default to true once implemented
+            verify_integrity: false,
+            mutate_store,
+            store_dir
+        }
+    }
 }
 
 pub fn get_git_path_with_driver<D: Driver>(driver: D, options: GetOptions, address: &GitAddress) -> Result<FinalResolved, GitError> {
