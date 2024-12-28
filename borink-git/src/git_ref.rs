@@ -9,6 +9,10 @@ use std::{
 use crate::{CommitHash, CommitHashBuf};
 
 pub trait GitRefStore {
+    fn name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
+
     // If we don't put the 'b bound on the error, it could maybe reference self, here we require it must
     // at least outlive the reference to self, which should be plenty flexible
     /// Get a CommitHash from the store, which depending on the implementation can be either owned
@@ -251,8 +255,6 @@ pub mod guarded {
 
                 db.insert(repo, git_ref, Cow::Borrowed(commit)).unwrap();
 
-                println!("inserted!");
-
                 let token = db.read_guard().unwrap();
 
                 let g = db.get(repo, git_ref, &token).unwrap().unwrap();
@@ -351,8 +353,6 @@ pub mod guarded {
                 let commit = CommitHash::from_str_unchecked("my_hash");
 
                 db.insert(repo, git_ref, Cow::Borrowed(commit)).unwrap();
-
-                println!("inserted!");
 
                 let token = db.read_guard().unwrap();
 

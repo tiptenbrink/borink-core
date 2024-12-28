@@ -4,10 +4,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use core::fmt::Debug;
 use relative_path::{Component, RelativePath, RelativePathBuf};
 use std::{
-    borrow::Borrow,
-    fs::{self, remove_dir_all, File},
-    io::{self, Error as IOError, Write},
-    path::Path,
+    borrow::Borrow, cmp, fs::{self, remove_dir_all, File}, io::{self, Error as IOError, Write}, path::Path
 };
 use thiserror::Error as ThisError;
 use tracing::debug;
@@ -61,10 +58,22 @@ impl<'a> GitRelativePath<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ShaRef {
     pub sha: String,
     pub git_ref: String,
+}
+
+impl cmp::PartialOrd for ShaRef {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        self.git_ref.partial_cmp(&other.git_ref)
+    }
+}
+
+impl cmp::Ord for ShaRef {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        self.git_ref.cmp(&other.git_ref)
+    }
 }
 
 /// https://stackoverflow.com/a/65192210

@@ -1,11 +1,25 @@
 use clap::Parser;
 use color_eyre::eyre::{bail, Report};
-
 use crate::{
     derive::TYPST_PLUGIN_NAME,
     server::{default_server, RequestInitSettings, ServerConfig},
     ServerSettingsView,
 };
+use tracing_error::ErrorLayer;
+use tracing_subscriber::{prelude::*, EnvFilter};
+
+pub fn install_tracing() {
+    // We have to add the error layer (see the examples in color-eyre), so we can't just use the default init
+    let fmt_layer = tracing_subscriber::fmt::layer().with_target(false);
+
+    let filter_layer = EnvFilter::from_default_env();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(filter_layer)
+        .with(ErrorLayer::default())
+        .init();
+}
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -14,28 +28,28 @@ pub struct Args {
     #[arg(short, long, env)]
     repo_url: String,
 
-    #[arg(short, long, env)]
+    #[arg(long, env)]
     exposed: bool,
 
     #[arg(short, long, env, default_value_t = 8004)]
     port: u16,
 
-    #[arg(short, long, env)]
+    #[arg(long, env)]
     subpath: Option<String>,
 
-    #[arg(short, long, env, default_value = "./store")]
+    #[arg(long, env, default_value = "./store")]
     git_store_dir: String,
 
-    #[arg(short, long, env, default_value = "")]
+    #[arg(long, env, default_value = "")]
     git_subpath: String,
 
-    #[arg(short, long, env, default_value_t = false)]
+    #[arg(long, env, default_value_t = false)]
     trusted: bool,
 
-    #[arg(short, long, env)]
+    #[arg(long, env)]
     trust_key: Option<String>,
 
-    #[arg(short, long, env, default_value = "./db.sqlite")]
+    #[arg(long, env, default_value = "./db.sqlite")]
     db_path: String,
 }
 

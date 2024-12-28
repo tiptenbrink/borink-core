@@ -1,12 +1,12 @@
 use borink_error::ErrorWithContext;
 use borink_process::process_complete_output;
-use camino::Utf8Path;
+use camino::{Utf8Path, Utf8PathBuf};
 use spinoff::{spinners, Spinner};
 use tracing::debug;
 
 use crate::git::{CommitHash, CommitHashBuf, GitError, GitRelativePath, ShaRef};
 use core::fmt::Debug;
-use std::ffi::OsStr;
+use std::{env::current_dir, ffi::OsStr};
 
 pub fn run_git<S: AsRef<OsStr> + Debug>(
     working_dir: &Utf8Path,
@@ -143,14 +143,29 @@ pub fn commit_exists(repo_dir: &Utf8Path, commit: &CommitHash) -> Result<bool, G
     Ok(result)
 }
 
+
+
 /// This function uses some simple parsing of `git ls-remote origin` to determine the up-to-date git commit hashes for a pattern
 /// These patterns can be branches or tags or other refs
-pub fn ls_remote(repo_dir: &Utf8Path, pattern: &str) -> Result<Option<CommitHashBuf>, GitError> {
+/// If `remote` is given as None, it will use `origin` for the Git repository in the given `repo_dir`. It's possible to provide an url. Guaranteed to provide a vector sorted by the first tuple element (the ref).
+pub fn ls_remote(repo_dir: Option<&Utf8Path>, remote: Option<&str>, pattern: Option<&str>) -> Result<Vec<(String, CommitHashBuf)>, GitError> {
     let mut sp = Spinner::new(spinners::Line, "Getting commit hash from remote...", None);
 
-    let args = vec!["ls-remote", "origin", pattern];
+    let mut args = vec!["ls-remote"];
+    if let Some(remote) = remote {
+        args.push(&remote);
+    } else {
+        args.push("origin");
+    }
+    if let Some(pattern) = pattern {
+        args.push(&pattern);
+    }
+    let mut dir: Option<Utf8PathBuf> = None;
+    if repo_dir.is_none() {
+        dir = Some(current_dir().unwrap().try_into().unwrap());
+    };
     let out = run_git(
-        repo_dir,
+        repo_dir.unwrap_or(&dir.unwrap()),
         args,
         "ls-remote origin to get commit from pattern",
     )
@@ -194,63 +209,108 @@ pub fn ls_remote(repo_dir: &Utf8Path, pattern: &str) -> Result<Option<CommitHash
         !(*sr.git_ref).contains("refs/remotes")
     });
 
-    // Assume that the pattern given is a commit itself if nothing is returned. We do a rev-parse to get the full-length commit.
-    let commit = if sha_refs.is_empty() {
-        return Ok(None);
+    // Suppose a list of refs like (would not be necessarily sorted):
+    // ab
+    // aq
+    // bd
+    // bd^{}
+    // fg
+    // zsdf
+    // zsdf^{}
 
-        // // FIXME, maybe use `git rev-list` and search all commits to also allow partial matches?
-        // // Update repo to ensure we have all the commits
-        // git_fetch(repo_dir)?;
+    sha_refs.sort();
+    // They are now sorted in ascending order like above
+    // We reverse them because we pop from the vector so go in reverse order
+    sha_refs.reverse();
+    // So we now have zsdf^{}, then zsdf, ..., ab
 
-        // let mut sp = Spinner::new(
-        //     spinners::Line,
-        //     "Running rev-parse to get full commit...",
-        //     None,
-        // );
+    let mut out = Vec::new();
 
-        // let commit_result = run_git(
-        //     repo_dir,
-        //     vec!["rev-parse", pattern],
-        //     "rev-parse to get full commit",
-        // )
-        // .map_err(|e| {
-        //     sp.fail("Failed!");
-        //     e
-        // })?;
+    if sha_refs.is_empty() {
+        return Ok(out)
+    }
 
-        // sp.success("Got commit hashes from remote!");
-
-        // commit_result
-    } else if sha_refs.len() >= 2 && sha_refs.iter().all(|s| s.sha == sha_refs[0].sha) {
-        // All the same, so no ambiguity
-        sha_refs[0].sha.to_owned()
-    } else if sha_refs.len() == 2 {
-        // We want the one with ^{}
-        if sha_refs[0].git_ref.ends_with("^{}") {
-            sha_refs[0].sha.to_owned()
-        } else if sha_refs[1].git_ref.ends_with("^{}") {
-            sha_refs[1].sha.to_owned()
+    // We know there's at least one element, so we can pop it
+    // This would be ad in our example
+    let mut current = sha_refs.pop().unwrap();
+    for mut r in sha_refs {
+        // If our new value starts with the same ref and ends with ^{}
+        // Then we want the ref name without the ^{} but the peeled ref sha
+        // In example first happens when current='bd', r='bd^{}'
+        if r.git_ref.starts_with(&current.git_ref) && r.git_ref.ends_with("^{}") {
+            // We keep the current's ref, but set it to the peeled's sha
+            current.sha = r.sha;
+        // In our example first this would be the case when we get aq
         } else {
-            return Err(GitError::Failed(
-                format!(
-                    "could not choose tag from two options for ls-remote: {:?}",
-                    &sha_refs
-                )
-                .into(),
-            ));
-        }
-    } else if sha_refs.len() == 1 {
-        sha_refs[0].sha.to_owned()
-    } else {
-        return Err(GitError::Failed(
-            format!(
-                "pattern is not specific enough, cannot determine commit for {}",
-                pattern
-            )
-            .into(),
-        ));
-    };
+            std::mem::swap(&mut current, &mut r);
+            // Now current will have the new value, while r will have the old one
+            // So in example current='aq', r='ab'
+            // We then push the previous one to the vec, so 'ab' is pushed
+            out.push((r.git_ref, CommitHashBuf::from_string_unchecked(r.sha)));
+        }        
+    }
+    // We always push the previous, so we need to still push current
+    // Also if there is just one this would be necessary
+    out.push((current.git_ref, CommitHashBuf::from_string_unchecked(current.sha)));
 
-    debug!("git commit from ls-remote={}", commit);
-    Ok(Some(CommitHashBuf::from_string_unchecked(commit)))
+    Ok(out)
+
+    // let commit = if sha_refs.is_empty() {
+    //     return Ok(None);
+
+    //     // // FIXME, maybe use `git rev-list` and search all commits to also allow partial matches?
+    //     // // Update repo to ensure we have all the commits
+    //     // git_fetch(repo_dir)?;
+
+    //     // let mut sp = Spinner::new(
+    //     //     spinners::Line,
+    //     //     "Running rev-parse to get full commit...",
+    //     //     None,
+    //     // );
+
+    //     // let commit_result = run_git(
+    //     //     repo_dir,
+    //     //     vec!["rev-parse", pattern],
+    //     //     "rev-parse to get full commit",
+    //     // )
+    //     // .map_err(|e| {
+    //     //     sp.fail("Failed!");
+    //     //     e
+    //     // })?;
+
+    //     // sp.success("Got commit hashes from remote!");
+
+    //     // commit_result
+    // } else if sha_refs.len() >= 2 && sha_refs.iter().all(|s| s.sha == sha_refs[0].sha) {
+    //     // All the same, so no ambiguity
+    //     sha_refs[0].sha.to_owned()
+    // } else if sha_refs.len() == 2 {
+    //     // We want the one with ^{}
+    //     if sha_refs[0].git_ref.ends_with("^{}") {
+    //         sha_refs[0].sha.to_owned()
+    //     } else if sha_refs[1].git_ref.ends_with("^{}") {
+    //         sha_refs[1].sha.to_owned()
+    //     } else {
+    //         return Err(GitError::Failed(
+    //             format!(
+    //                 "could not choose tag from two options for ls-remote: {:?}",
+    //                 &sha_refs
+    //             )
+    //             .into(),
+    //         ));
+    //     }
+    // } else if sha_refs.len() == 1 {
+    //     sha_refs[0].sha.to_owned()
+    // } else {
+    //     return Err(GitError::Failed(
+    //         format!(
+    //             "pattern is not specific enough, cannot determine commit for {}",
+    //             pattern
+    //         )
+    //         .into(),
+    //     ));
+    // };
+
+    // debug!("git commit from ls-remote={}", commit);
+    // Ok(Some(CommitHashBuf::from_string_unchecked(commit)))
 }

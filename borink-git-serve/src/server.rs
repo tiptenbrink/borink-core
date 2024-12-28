@@ -207,6 +207,7 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
         &mut self,
         ref_store: &mut impl GitRefStore,
     ) -> Result<(), EarlyResolve<'b>> {
+        debug!("Reading from ref store implemented using {}...", ref_store.name());
         // If pattern is set that means we have some pattern we want to convert into a commit
         if let Some(pattern) = &self.pattern {
             // If insert_pattern was set (and we are trusted) that means we should add it to the ref store
@@ -243,7 +244,7 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
                     // TODO use some logic here to resolve it based on e.g. ls_remote
                     if !is_hexadecimal(pattern) || pattern.len() != 40 {
                         return Err(EarlyResolve::BadRequest(
-                            "Unknown pattern that is not a commit!".to_owned(),
+                            format!("Unknown pattern {} that is not a commit!", pattern),
                         ));
                     }
 
@@ -299,19 +300,22 @@ fn handle_request(
     cache: &mut impl ResponseCache,
 ) -> Result<Response<Cursor<Vec<u8>>>, Report> {
     let headers = read_headers(request.headers());
-
+    debug!("Reading headers into settings...");
     if let Err(err) = settings.read_method_headers(request.method().as_str(), headers) {
         return Ok(err.response());
     }
 
+    debug!("Reading url into settings...");
     if let Err(err) = settings.read_url(request.url()) {
         return Ok(err.response());
     }
 
+    debug!("Reading Git ref store into settings...");
     if let Err(err) = settings.use_git_ref_store(ref_store) {
         return Ok(err.response());
     }
 
+    debug!("Determining Git address...");
     let address = match settings.address() {
         Ok(addr) => addr,
         Err(err) => return Ok(err.response()),

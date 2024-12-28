@@ -17,3 +17,6 @@ mod server;
 
 #[cfg(feature = "cli")]
 pub mod cli;
+
+#[cfg(feature = "client")]
+pub mod client;
