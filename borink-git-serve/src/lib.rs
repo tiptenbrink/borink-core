@@ -5,7 +5,9 @@ mod derivers;
 mod kv;
 
 pub use derive::response_cache_map;
-pub use derive::{PluginRegistry, DerivedResponse, DeriveError, GitDeriveError, ResponseCache, ServerSettingsView};
+pub use derive::{
+    DeriveError, DerivedResponse, GitDeriveError, PluginRegistry, ResponseCache, ServerSettingsView,
+};
 
 #[cfg(feature = "typst-compile")]
 pub use derivers::{compile_typst_document, CompileTypst};

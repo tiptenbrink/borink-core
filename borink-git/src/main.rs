@@ -35,7 +35,6 @@
 //     hello.s = "hi xiwen".to_owned();
 // }
 
-
 fn main() {
     //some_function();
 }

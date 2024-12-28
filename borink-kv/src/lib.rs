@@ -8,27 +8,25 @@ use borink_error::{ContextSource, StringContext};
 pub type Result<T, E = KvError> = result::Result<T, E>;
 
 fn set_options(conn: &Connection) -> Result<()> {
-    Ok(conn
-        .execute_batch(
-            "PRAGMA journal_mode = WAL;
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
         PRAGMA temp_store = MEMORY;
         PRAGMA synchronous = NORMAL;
         PRAGMA cache_size = -64000;",
-        )
-        .to_kv_err("failed to set storage engine options")?)
+    )
+    .to_kv_err("failed to set storage engine options")
 }
 
 fn create_kv_table(conn: &Connection) -> Result<()> {
-    Ok(conn
-        .execute_batch(
-            "CREATE TABLE IF NOT EXISTS key_value (
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS key_value (
             key BLOB PRIMARY KEY,
             meta BLOB,
             value BLOB
         ) STRICT;
         CREATE INDEX IF NOT EXISTS meta_index ON key_value (meta);",
-        )
-        .to_kv_err("failed to create kv table")?)
+    )
+    .to_kv_err("failed to create kv table")
 }
 
 pub fn recreate_kv_table(conn: &Connection) -> Result<()> {
@@ -157,7 +155,7 @@ mod db {
         /// Create a new DatabaseRef from the same underlying connection that has its own set of
         /// prepared statements. A DatabaseRef has the additional property that its query functions
         /// don't require mutable access. However, each DatabaseRef should only exist once.
-        pub fn prepare_new_ref<'conn>(&'conn self) -> Result<DatabaseRef<'conn>> {
+        pub fn prepare_new_ref(&self) -> Result<DatabaseRef<'_>> {
             DatabaseRef::prepare_from_conn(self.conn())
         }
 
@@ -224,16 +222,14 @@ mod db {
     }
 
     pub fn get_meta(ops: &mut KvOperations, key: &[u8]) -> Result<Option<Vec<u8>>> {
-        Ok(ops
-            .get_meta_stmt
+        ops.get_meta_stmt
             .query_row(params![key], |row| row.get::<_, Vec<u8>>(0))
             .optional()
-            .to_kv_err("error during get_meta")?)
+            .to_kv_err("error during get_meta")
     }
 
     pub fn get(ops: &mut KvOperations, key: &[u8]) -> Result<Option<KvMetaValue>> {
-        Ok(ops
-            .get_stmt
+        ops.get_stmt
             .query_row(params![key], |row| {
                 Ok(KvMetaValue {
                     value: row.get(0)?,
@@ -241,7 +237,7 @@ mod db {
                 })
             })
             .optional()
-            .to_kv_err("error during get")?)
+            .to_kv_err("error during get")
     }
 
     pub fn exists(ops: &mut KvOperations, key: &[u8]) -> Result<bool> {

@@ -8,5 +8,5 @@ borink-git-serve = { path = "../borink-git-serve", features = ["cli"] }
 color-eyre = { version = "=0.6.3" }
 
 [features]
-default-features = ["typst-compile"]
+default = ["typst-compile"]
 typst-compile = ["borink-git-serve/typst-compile"]

@@ -1,7 +1,11 @@
 use clap::Parser;
 use color_eyre::eyre::{bail, Report};
 
-use crate::{derive::TYPST_PLUGIN_NAME, server::{default_server, RequestInitSettings, ServerConfig}, ServerSettingsView};
+use crate::{
+    derive::TYPST_PLUGIN_NAME,
+    server::{default_server, RequestInitSettings, ServerConfig},
+    ServerSettingsView,
+};
 
 #[derive(Parser, Debug)]
 #[command()]
@@ -32,7 +36,7 @@ pub struct Args {
     trust_key: Option<String>,
 
     #[arg(short, long, env, default_value = "./db.sqlite")]
-    db_path: String
+    db_path: String,
 }
 
 pub fn run_cli() -> Result<(), Report> {
@@ -46,7 +50,7 @@ pub fn run_cli() -> Result<(), Report> {
 
     let server_config = ServerConfig {
         hostname,
-        port: parsed.port
+        port: parsed.port,
     };
 
     let server_settings = ServerSettingsView {
@@ -67,5 +71,10 @@ pub fn run_cli() -> Result<(), Report> {
         bail!("If no trust key is provided, TRUSTED must be explicitly set!")
     }
 
-    default_server(server_config, &server_settings, init_settings, parsed.db_path.as_str().into())
+    default_server(
+        server_config,
+        &server_settings,
+        init_settings,
+        parsed.db_path.as_str().into(),
+    )
 }

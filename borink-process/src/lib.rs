@@ -1,11 +1,11 @@
+use borink_error::{ContextSource, StringContext};
 use camino::Utf8PathBuf;
 use duct::{cmd, IntoExecutablePath};
 use std::ffi::OsStr;
 use std::fmt::Debug;
+use std::io::Error as IOError;
 use std::process::ExitStatus;
 use thiserror::Error as ThisError;
-use borink_error::{StringContext, ContextSource};
-use std::io::Error as IOError;
 
 #[derive(ThisError, Debug)]
 pub enum ProcessError {

@@ -17,7 +17,12 @@ borink-kv = { path = "../borink-kv", optional = true }
 redb = { version = "2.3.0", optional = true }
 papaya = { version = "0.1.6", optional = true }
 
+[dev-dependencies]
+tempfile = "3.14.0"
+
 [features]
-default-features = []
+default = []
 kv = ["dep:borink-kv"]
-guarded = ["dep:redb", "dep:papaya"]
+guarded = []
+redb = ["dep:redb", "guarded"]
+papaya = ["dep:papaya", "guarded"]

@@ -129,7 +129,7 @@ impl ResponseCache for HashMap<String, DerivedResponse> {
 
         Ok(())
     }
-    
+
     fn cache_key(derive_ctx: &str, address: &StoreAddress) -> String {
         std::format!("borink-cache:{derive_ctx}:{}", address.as_str())
     }
@@ -152,7 +152,7 @@ pub fn derived_resource<C: ResponseCache>(
     use_cache: bool,
     mutate_store: bool,
     response_cache: &mut C,
-    deriver: &Box<dyn ResourceDeriver>,
+    deriver: &dyn ResourceDeriver,
 ) -> Result<DerivedResponse, GitDeriveError> {
     let store_address: StoreAddress = address.into();
 
@@ -198,7 +198,13 @@ pub struct PluginRegistry {
 }
 
 #[cfg(feature = "typst-compile")]
-pub const TYPST_PLUGIN_NAME: &'static str = "compile_typst_main";
+pub const TYPST_PLUGIN_NAME: &str = "compile_typst_main";
+
+impl Default for PluginRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PluginRegistry {
     pub fn new() -> Self {
@@ -247,7 +253,7 @@ impl PluginRegistry {
             use_cache,
             mutate_store,
             response_cache,
-            function,
+            function.as_ref(),
         )
     }
 }

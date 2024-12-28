@@ -1,13 +1,16 @@
+use borink_error::{ContextSource, StringContext, WrapErrorWithContext};
 use borink_process::ProcessError;
 use camino::{Utf8Path, Utf8PathBuf};
+use core::fmt::Debug;
 use relative_path::{Component, RelativePath, RelativePathBuf};
+use std::{
+    borrow::Borrow,
+    fs::{self, remove_dir_all, File},
+    io::{self, Error as IOError, Write},
+    path::Path,
+};
 use thiserror::Error as ThisError;
 use tracing::debug;
-use borink_error::{ContextSource, StringContext, WrapErrorWithContext};
-use core::fmt::Debug;
-use std::{
-    borrow::Borrow, fs::{self, remove_dir_all, File}, io::{self, Error as IOError, Write}, path::Path
-};
 
 pub fn is_hexadecimal(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_hexdigit())
@@ -32,7 +35,6 @@ pub enum GitError {
     // #[error("git absent error: {0}")]
     // Absent(StringContext),
 }
-
 
 /// This is a relative path that does contain any ".." or similar
 #[derive(Debug)]
@@ -116,7 +118,7 @@ pub fn parse_url_name(url: &str) -> Result<String, GitError> {
 
 use sha2::{Digest, Sha256};
 
-use crate::git_call::{checkout, commit_exists, repo_fetch, repo_clone};
+use crate::git_call::{checkout, commit_exists, repo_clone, repo_fetch};
 
 /// This should only ever be a hexstring that represents a full 20-byte SHA
 #[derive(Clone, Debug)]
@@ -139,7 +141,7 @@ pub struct CommitHash(str);
 
 impl Borrow<CommitHash> for CommitHashBuf {
     fn borrow(&self) -> &CommitHash {
-        &CommitHash::from_str_unchecked(self.as_str())
+        CommitHash::from_str_unchecked(self.as_str())
     }
 }
 
@@ -159,11 +161,7 @@ pub struct GitAddress<'a> {
 }
 
 impl<'a> GitAddress<'a> {
-    pub fn new_unchecked(
-        url: &'a str,
-        subpath: &'a str,
-        commit_hash: &'a str,
-    ) -> GitAddress<'a> {
+    pub fn new_unchecked(url: &'a str, subpath: &'a str, commit_hash: &'a str) -> GitAddress<'a> {
         GitAddress {
             repository_url: GitRepositoryUrl(url),
             subpath: GitRelativePath(RelativePath::new(subpath)),
@@ -245,7 +243,7 @@ impl StoreAddress {
 
 impl<'a> From<&GitAddress<'a>> for StoreAddress {
     fn from(address: &GitAddress<'a>) -> Self {
-        store_address(&address)
+        store_address(address)
     }
 }
 
@@ -427,7 +425,9 @@ impl GitState {
 }
 
 pub trait Driver {
-    fn drive(self, options: GetOptions, address: &GitAddress) -> Result<FinalResolved, GitError> where Self: Sized;
+    fn drive(self, options: GetOptions, address: &GitAddress) -> Result<FinalResolved, GitError>
+    where
+        Self: Sized;
 }
 
 /// Various options for running `get_git_path`.
@@ -445,7 +445,7 @@ impl<'a> GetOptions<'a> {
         Self {
             store_dir,
             mutate_store,
-            verify_integrity
+            verify_integrity,
         }
     }
 
@@ -454,12 +454,16 @@ impl<'a> GetOptions<'a> {
             // Will default to true once implemented
             verify_integrity: false,
             mutate_store,
-            store_dir
+            store_dir,
         }
     }
 }
 
-pub fn get_git_path_with_driver<D: Driver>(driver: D, options: GetOptions, address: &GitAddress) -> Result<FinalResolved, GitError> {
+pub fn get_git_path_with_driver<D: Driver>(
+    driver: D,
+    options: GetOptions,
+    address: &GitAddress,
+) -> Result<FinalResolved, GitError> {
     driver.drive(options, address)
 }
 
@@ -470,8 +474,16 @@ pub fn get_git_path(options: GetOptions, address: &GitAddress) -> Result<FinalRe
 pub struct SingleLoopDriver;
 
 impl Driver for SingleLoopDriver {
-    fn drive(self, options: GetOptions, address: &GitAddress) -> Result<FinalResolved, GitError> where Self: Sized {
-        single_loop(options.store_dir, address, options.mutate_store, options.verify_integrity)
+    fn drive(self, options: GetOptions, address: &GitAddress) -> Result<FinalResolved, GitError>
+    where
+        Self: Sized,
+    {
+        single_loop(
+            options.store_dir,
+            address,
+            options.mutate_store,
+            options.verify_integrity,
+        )
     }
 }
 

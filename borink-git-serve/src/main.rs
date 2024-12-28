@@ -6,7 +6,7 @@ fn main() {
     run_cli().unwrap();
 
     #[cfg(not(feature = "cli"))]
-    cli_not_available()    
+    cli_not_available()
 }
 
 #[cfg(not(feature = "cli"))]
