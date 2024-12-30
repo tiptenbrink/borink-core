@@ -275,6 +275,9 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
         }
 
         for (key, value) in headers {
+            // Some reverse proxies change the case of the header keys
+            let key = key.to_ascii_lowercase();
+
             if key == "borink-git-derive-key" {
                 if let Some(trust_key) = self.trust_key {
                     let matches = trust_key == value;

@@ -16,7 +16,7 @@ async fn make_sync_request(client: &Client, base_url: &str, git_ref: &str, commi
         req
     };
 
-    info!("Requesting from {} with headers", url);
+    info!("Requesting from {}", url);
 
     let res = req.send().await?;
     
@@ -43,9 +43,9 @@ async fn sync_reqs(
         make_sync_request(&client, base_url, &git_ref, &commit, key).await?;
 
         let stripped_ref = if git_ref.starts_with("refs/tags/") {
-            git_ref.strip_suffix("refs/tags/")
+            git_ref.strip_prefix("refs/tags/")
         } else if git_ref.starts_with("refs/heads/") {
-            git_ref.strip_suffix("refs/heads/")
+            git_ref.strip_prefix("refs/heads/")
         } else {
             None
         };
