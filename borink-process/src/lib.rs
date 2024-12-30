@@ -61,15 +61,18 @@ where
     E: IntoExecutablePath + Debug + Clone,
     S: AsRef<OsStr> + Debug,
 {
+    let working_dir: Utf8PathBuf = working_dir.into();
+    let working_dir_canon = working_dir.canonicalize_utf8().to_process_err(format!("Failed to canonicalize working dir {}", working_dir))?;
+
     let output = cmd(program.clone(), &args)
-        .dir(working_dir.clone().into())
+        .dir(&working_dir_canon)
         .stderr_to_stdout()
         .stdout_capture()
         .unchecked()
         .run()
         .to_process_err(format!(
             "process {:?} with args {:?} failed to run in {:?}",
-            program, args, working_dir
+            program, args, working_dir_canon
         ))?;
 
     Ok(EntrypointOutBytes {
