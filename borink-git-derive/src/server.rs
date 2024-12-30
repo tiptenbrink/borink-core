@@ -281,6 +281,9 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
                     if matches {
                         debug!("Header key matches trust key, trusting...");
                         self.trusted = true;
+                    } else {
+                        debug!("Header key does not match trust key, not trusting!");
+                        self.trusted = false;
                     }
                 }
             } else if key == "borink-git-no-cache" {

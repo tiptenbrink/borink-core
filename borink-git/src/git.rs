@@ -4,7 +4,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use core::fmt::Debug;
 use relative_path::{Component, RelativePath, RelativePathBuf};
 use std::{
-    borrow::Borrow, cmp, fs::{self, remove_dir_all, File}, io::{self, Error as IOError, Write}, path::Path
+    borrow::Borrow, cmp, fs::{self, remove_dir_all, File}, io::{self, Error as IOError, Write}, ops::Deref, path::Path
 };
 use thiserror::Error as ThisError;
 use tracing::debug;
@@ -138,6 +138,14 @@ use crate::git_call::{checkout, commit_exists, repo_clone, repo_fetch};
 #[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct CommitHashBuf(String);
+
+impl Deref for CommitHashBuf {
+    type Target = CommitHash;
+
+    fn deref(&self) -> &Self::Target {
+        self.borrow()
+    }
+}
 
 impl CommitHashBuf {
     pub fn as_bytes(&self) -> &[u8] {
