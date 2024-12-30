@@ -47,6 +47,11 @@ impl GitRelativePathBuf {
 #[repr(transparent)]
 pub struct GitRepositoryUrl<'a>(&'a str);
 
+impl<'a> GitRepositoryUrl<'a> {
+    pub fn as_str(&self) -> &str {
+        self.0
+    }
+}
 // This is a relative path that does contain any ".." or similar
 #[derive(Clone, Debug)]
 #[repr(transparent)]
@@ -66,7 +71,7 @@ pub struct ShaRef {
 
 impl cmp::PartialOrd for ShaRef {
     fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.git_ref.partial_cmp(&other.git_ref)
+        Some(self.cmp(other))
     }
 }
 
@@ -164,9 +169,9 @@ impl ToOwned for CommitHash {
 
 #[derive(Debug)]
 pub struct GitAddress<'a> {
-    repository_url: GitRepositoryUrl<'a>,
-    subpath: GitRelativePath<'a>,
-    commit_hash: &'a CommitHash,
+    pub repository_url: GitRepositoryUrl<'a>,
+    pub subpath: GitRelativePath<'a>,
+    pub commit_hash: &'a CommitHash,
 }
 
 impl<'a> GitAddress<'a> {
@@ -357,10 +362,6 @@ pub enum GitState {
     Start {},
     // Local states
     RequestRepo {},
-    // ResolveCommit {
-    //     pattern: Pattern,
-    //     store_repo_dir: Utf8PathBuf,
-    // },
     RepoExists {
         store_repo_dir: Utf8PathBuf,
     },
@@ -379,15 +380,6 @@ pub enum GitState {
         store_repo_path: GitRelativePathBuf,
         store_repo_dir: Utf8PathBuf,
     },
-    // ResolveFull {
-    //     store_repo_dir: Utf8PathBuf,
-    //     hex_str: HexStrOwned,
-    // },
-    // SearchRemote {
-    //     store_repo_dir: Utf8PathBuf,
-    //     pattern_string: String,
-    //     is_hex: bool,
-    // },
     CreateAddress {
         store_repo_dir: Utf8PathBuf,
     },
@@ -510,10 +502,6 @@ fn single_loop(
             .map_err_with_context(format!("failed to create store dir: {}", store_dir))?;
     }
 
-    //let e: Result<FinalResolved, _> = Err(std::io::Error::new(std::io::ErrorKind::AddrInUse, TestError));
-
-    //return Ok(e.map_err_with_context("bad message!")?);
-
     loop {
         match state.handler() {
             StateHandler::Local => {
@@ -549,22 +537,6 @@ fn single_loop(
         }
     }
 }
-
-// fn single_loop<L: LoopQueue, E: LoopQueueRef>(local_queue: &mut L, ex_queue: &E, store_dir: &Utf8Path, repository: &str, subpath: &GitRelativePath, verify_integrity: bool, cache_options: &CacheOptions) -> Result<FinalResolved, GitError> {
-//     loop {
-//         if let Some(state) = local_queue.next_state() {
-//             match state.handler() {
-//                 StateHandler::Local => {
-//                     local_queue.add_state(drive_local(state, cache_options, store_dir, repository, subpath.clone(), verify_integrity)?)
-//                 },
-//                 StateHandler::Exclusive => ex_queue.send_state(state),
-//                 StateHandler::Resolved => return Ok(state.as_resolved()),
-//             }
-//         } else {
-//             unreachable!("Should never be empty, should always resolve!")
-//         }
-//     }
-// }
 
 fn drive_local(
     git_state: GitState,

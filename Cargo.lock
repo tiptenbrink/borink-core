@@ -173,8 +173,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "borink-git-serve"
-version = "0.1.0"
+name = "borink-git-derive"
+version = "0.0.1"
 dependencies = [
  "borink-error",
  "borink-git",
@@ -195,16 +195,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "borink-git-serve-cli"
-version = "0.1.0"
+name = "borink-git-derive-cli"
+version = "0.0.1"
 dependencies = [
- "borink-git-serve",
+ "borink-git-derive",
  "color-eyre",
 ]
 
 [[package]]
 name = "borink-kv"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "borink-error",
  "camino",

@@ -15,8 +15,9 @@ pub use derivers::{compile_typst_document, CompileTypst};
 #[cfg(feature = "server")]
 mod server;
 
+#[cfg(feature = "client")]
+mod client;
+
 #[cfg(feature = "cli")]
 pub mod cli;
 
-#[cfg(feature = "client")]
-pub mod client;

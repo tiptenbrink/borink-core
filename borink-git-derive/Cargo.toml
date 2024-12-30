@@ -1,6 +1,6 @@
 [package]
-name = "borink-git-serve"
-version = "0.1.0"
+name = "borink-git-derive"
+version = "0.0.1"
 edition = "2021"
 
 [dependencies]
@@ -26,11 +26,16 @@ tokio = { version = "1", features = ["rt"], optional = true }
 default = ["typst-compile", "kv", "server"]
 typst-compile = []
 kv = ["dep:borink-kv", "dep:serde", "dep:rmp-serde", "borink-git/kv"]
-app = ["dep:color-eyre", "dep:tracing-subscriber", "dep:tracing-error"]
+cli = ["dep:color-eyre", "dep:tracing-subscriber", "dep:tracing-error", "dep:clap"]
 server = ["dep:tiny_http", "dep:color-eyre"]
-cli = ["dep:clap", "server", "kv", "app"]
-client = ["dep:reqwest", "dep:tokio", "app"]
+server-cli = ["server", "kv", "cli"]
+client = ["dep:reqwest", "dep:tokio"]
+client-cli = ["client", "cli"]
 
 [[bin]]
-name = "borink-git-serve"
-required-features = ["cli"]
+name = "borink-git-derive"
+required-features = ["server-cli"]
+
+[[bin]]
+name = "client"
+required-features = ["client-cli"]

@@ -1,0 +1,12 @@
+[package]
+name = "borink-git-derive-cli"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+borink-git-derive = { path = "../borink-git-derive", features = ["server-cli"] }
+color-eyre = { version = "=0.6.3" }
+
+[features]
+default = ["typst-compile"]
+typst-compile = ["borink-git-derive/typst-compile"]

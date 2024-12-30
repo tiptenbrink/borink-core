@@ -39,51 +39,55 @@ impl<'a> EarlyResolve<'a> {
     }
 }
 
-fn parse_url<'a>(
+fn parse_url<'a, 'b>(
     url: &'a str,
-    default_pattern: &str,
+    default_pattern: &'b str,
     sub_path: Option<&str>,
-) -> Result<&'a str, EarlyResolve<'a>> {
-    let url_parts = url.split("/").collect::<Vec<&str>>();
+) -> Result<&'a str, EarlyResolve<'b>> {
+    // We expect sub_path to be a string without leading and trailing slashes, but optionally some slashes
+    // in between
+    let pattern_maybe_with_end_slash = if let Some(sub_path) = sub_path {
+        assert!(!sub_path.ends_with("/"));
+        assert!(!sub_path.starts_with("/"));
 
-    let pattern_path = if let Some(sub_path) = sub_path {
-        // We expect a valid path to look something like ["", "<sub_path>", "<pattern>"]
-        if url_parts.len() < 2 || url_parts[1] != sub_path {
-            return Err(EarlyResolve::NotFound);
+        let start_index = url.find(sub_path);
+
+        if let Some(start_index) = start_index {
+            // Subpath should be immediately after the starting slash, which is 1 byte
+            if start_index != 1 || !url.starts_with("/") {
+                return Err(EarlyResolve::NotFound)
+            }
+            // So we know our url is /<subpath><other>
+
+            let other = &url[(start_index+sub_path.len())..];
+
+            if other.is_empty() {
+                // Send it to the default
+                return Err(EarlyResolve::redirect(default_pattern))
+            } else if !other.starts_with("/") {
+                // Pattern should be after the slash, so we return not found here
+                return Err(EarlyResolve::NotFound)
+            }
+
+            // So now the rest of the pattern is after the leading slash
+            &other[1..]
+        } else {
+            // Subpath doesn't exist, which means we don't care about it
+            return Err(EarlyResolve::NotFound)
         }
-
-        // We have at least ["?", "<sub_path>"] now
-
-        if url_parts.len() == 2 || url_parts[3].is_empty() {
-            let location = format!("/{}/{}", sub_path, default_pattern);
-            return Err(EarlyResolve::redirect(location));
-        }
-
-        if url_parts.len() > 3 {
-            let location = format!("/{}/{}", sub_path, url_parts[2]);
-            return Err(EarlyResolve::redirect(location));
-        }
-
-        url_parts[2]
     } else {
-        // We expect a valid path to look something like ["", "<pattern>"]
-
-        if url_parts.len() < 2 || url_parts[1].is_empty() {
-            let location = format!("/{}", default_pattern);
-            return Err(EarlyResolve::redirect(location));
+        if url.is_empty() {
+            return Err(EarlyResolve::redirect(default_pattern))
         }
 
-        // We have at least ["?", "<non_empty>"] now
-
-        if url_parts.len() > 2 {
-            let location = format!("/{}", url_parts[1]);
-            return Err(EarlyResolve::redirect(location));
+        if !url.starts_with("/") {
+            return Err(EarlyResolve::NotFound)
         }
 
-        url_parts[1]
+        &url[1..]
     };
 
-    Ok(pattern_path)
+    Ok(pattern_maybe_with_end_slash.strip_suffix("/").unwrap_or(pattern_maybe_with_end_slash))
 }
 
 fn read_headers(headers: &[tiny_http::Header]) -> Vec<(&str, &str)> {
@@ -110,7 +114,7 @@ pub trait RequestSettings {
 
     fn mutate_store(&self) -> bool;
 
-    fn read_url<'url>(&mut self, url: &'url str) -> Result<(), EarlyResolve<'url>>;
+    fn read_url(&mut self, url: &str) -> Result<(), EarlyResolve>;
 
     fn use_git_ref_store<'a>(
         &mut self,
@@ -163,7 +167,7 @@ impl<'a> DefaultRequestSettings<'a> {
             insert_pattern: None,
             commit: None,
             pattern: None,
-            trusted: false,
+            trusted: settings.trust_key.is_none(),
         }
     }
 }
@@ -195,8 +199,9 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
         self.mutate_store
     }
 
-    fn read_url<'url>(&mut self, url: &'url str) -> Result<(), EarlyResolve<'url>> {
+    fn read_url(&mut self, url: &str) -> Result<(), EarlyResolve<'a>> {
         let pattern = parse_url(url, self.default_path, self.subpath)?;
+        debug!("Parsed pattern as {}.", pattern);
 
         self.pattern = Some(pattern.to_owned());
 
@@ -213,13 +218,14 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
             // If insert_pattern was set (and we are trusted) that means we should add it to the ref store
             if self.insert_pattern.is_some() && self.trusted {
                 let insert_pattern = self.insert_pattern.as_ref().unwrap();
+                debug!("Got insert pattern and trusted, inserting {insert_pattern} for ref {pattern}...");
                 if !is_hexadecimal(insert_pattern) || insert_pattern.len() != 40 {
                     return Err(EarlyResolve::BadRequest(
                         "Provided pattern value is not a valid commit hash!".to_owned(),
                     ));
                 }
 
-                let commit_hash = CommitHashBuf::from_string_unchecked(pattern.to_owned());
+                let commit_hash = CommitHashBuf::from_string_unchecked(insert_pattern.to_owned());
 
                 ref_store
                     .insert(
@@ -236,6 +242,7 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
                 let stored = ref_store.get(self.repo_url, pattern).unwrap();
 
                 if let Some(stored) = stored {
+                    debug!("Found commit {} for pattern {pattern} in ref store, allowing mutate.", stored.as_str());
                     self.mutate_store = true;
                     self.commit = Some(stored.into_owned());
                 } else {
@@ -247,6 +254,8 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
                             format!("Unknown pattern {} that is not a commit!", pattern),
                         ));
                     }
+
+                    debug!("Pattern {pattern} not found, but is valid commit.");
 
                     self.commit = Some(CommitHashBuf::from_string_unchecked(pattern.to_owned()));
                 }
@@ -266,14 +275,14 @@ impl<'a> RequestSettings for DefaultRequestSettings<'a> {
         }
 
         for (key, value) in headers {
-            if key == "borink-git-serve-key" {
-                let trusted = if let Some(trust_key) = self.trust_key {
-                    trust_key == value
-                } else {
-                    true
-                };
-
-                self.trusted = trusted;
+            if key == "borink-git-derive-key" {
+                if let Some(trust_key) = self.trust_key {
+                    let matches = trust_key == value;
+                    if matches {
+                        debug!("Header key matches trust key, trusting...");
+                        self.trusted = true;
+                    }
+                }
             } else if key == "borink-git-no-cache" {
                 if value == "1" || value == "true" {
                     self.use_cache = false;
@@ -321,6 +330,8 @@ fn handle_request(
         Err(err) => return Ok(err.response()),
     };
 
+    debug!("Got address as repo={};path={};commit={}", address.repository_url.as_str(), address.subpath.as_str(), address.commit_hash.as_str());
+
     let derived_response = match registry.derive_with(
         settings.plugin_name(),
         server_settings,
@@ -357,15 +368,6 @@ pub fn run_server(
         "Server is running at {}:{}...",
         config.hostname, config.port
     );
-    // let registry = PluginRegistry::new();
-    // let db = Database::open("./db.sqlite".into())?;
-    // let mut db_inst = db.prepare_new_ref()?;
-    // let handle_options = HandleOptions {
-    //     compile_path: &config.compOk(())ilation_path,
-    //     default_pattern: &config.default_pattern,
-    //     sub_path: config.sub_path.as_deref(),
-    //     repo_url: &config.repo_url
-    // };
 
     loop {
         let request = match server.recv() {

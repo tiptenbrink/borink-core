@@ -153,12 +153,12 @@ pub fn ls_remote(repo_dir: Option<&Utf8Path>, remote: Option<&str>, pattern: Opt
 
     let mut args = vec!["ls-remote"];
     if let Some(remote) = remote {
-        args.push(&remote);
+        args.push(remote);
     } else {
         args.push("origin");
     }
     if let Some(pattern) = pattern {
-        args.push(&pattern);
+        args.push(pattern);
     }
     let mut dir: Option<Utf8PathBuf> = None;
     if repo_dir.is_none() {

@@ -1,4 +1,4 @@
-use borink_git_serve::cli::{run_cli, install_tracing};
+use borink_git_derive::cli::{server::run_cli, install_tracing};
 
 use color_eyre::eyre::Report;
 
