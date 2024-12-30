@@ -15,7 +15,7 @@ pub fn compile_typst_document(
     match process_complete_bytes(
         ".",
         "typst",
-        vec!["compile", main_file.to_string().as_ref(), out_file],
+        vec!["compile", main_file.as_str(), out_file],
     ) {
         Ok(EntrypointOutBytes { out, exit }) => {
             if exit.success() {

@@ -44,6 +44,7 @@ fn parse_url<'a, 'b>(
     default_pattern: &'b str,
     sub_path: Option<&str>,
 ) -> Result<&'a str, EarlyResolve<'b>> {
+    println!("url={:?}", url);
     // We expect sub_path to be a string without leading and trailing slashes, but optionally some slashes
     // in between
     let pattern_maybe_with_end_slash = if let Some(sub_path) = sub_path {
@@ -76,7 +77,7 @@ fn parse_url<'a, 'b>(
             return Err(EarlyResolve::NotFound)
         }
     } else {
-        if url.is_empty() {
+        if url.is_empty() || url == "/" {
             return Err(EarlyResolve::redirect(default_pattern))
         }
 
