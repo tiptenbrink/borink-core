@@ -148,6 +148,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "borink-auth"
+version = "0.1.0"
+
+[[package]]
 name = "borink-error"
 version = "0.1.0"
 dependencies = [
