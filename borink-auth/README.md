@@ -74,3 +74,7 @@ TO USER: signed session token
 All this requires only two internal state mutations, one to generate the u64 and one time to record it is used. 
 
 The question is now to make this as scalable as possible and minimize memory use.
+
+### Cache and disk
+
+We primarily use a concurrent hash map for our storage. The only information that must be persisted to disk is the user data. Users are stored in blocks of 16 users.
