@@ -7,5 +7,6 @@ members = [
     "borink-process",
     "borink-git-derive",
     "borink-git-derive-cli",
-    "borink-auth"
+    "borink-auth",
+    "borink-crypto"
 ]

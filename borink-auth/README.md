@@ -78,3 +78,5 @@ The question is now to make this as scalable as possible and minimize memory use
 ### Cache and disk
 
 We primarily use a concurrent hash map for our storage. The only information that must be persisted to disk is the user data. Users are stored in blocks of 16 users.
+
+As a storage engine any kind of blob kv storage suffices, most likeley either https://github.com/rust-rocksdb/rust-rocksdb or https://github.com/meilisearch/heed or redb or SQLite.

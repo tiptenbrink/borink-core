@@ -8,3 +8,4 @@ papaya = "0.1.7"
 boxcar = "0.2.8"
 fixedstr = { version = "0.5.8", features = ["no-alloc"] }
 rand = "0.8.5"
+opaque-borink = "0.6.0"
