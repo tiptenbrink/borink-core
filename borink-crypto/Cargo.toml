@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-aes-gcm-siv = "0.11.1"
+aes-gcm-siv = { version = "0.11.1" }
+aead = { version = "0.5.2", features = ["arrayvec"] }
+arrayvec = "0.7.6"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 thiserror = "2"
 sha2 = "0.10.8"
 typenum = { version = "1", features = ["const-generics"] }
 generic-array = { version = "1" }
+paste = "1"

@@ -1,4 +1,5 @@
-use aes_gcm_siv::{self as aead, aead::AeadInPlace, aead::Aead, KeyInit};
+use ::aead::arrayvec::ArrayVec;
+use aes_gcm_siv::{self as aead, aead::{Aead, AeadInPlace}, Aes256GcmSiv, AesGcmSiv, KeyInit};
 use rand::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
@@ -250,36 +251,53 @@ pub fn symmetric_encrypt_const<const N: usize>(
     todo!()
 }
 
-// pub fn symmetric_encrypt_const<N>(
-//     data: GenericArray<u8, N>,
-//     key: &impl AsSymmetricKey,
-//     rng: &mut (impl RngCore + CryptoRng),
-// ) -> GenericArray<u8, WithTag<N>> where 
-//     N: Add<U16> + ArrayLength,
-//     Sum<N, U16>: ArrayLength
-//     // Sum<U<N>, U1>: ArrayLength
-// {
-//     // let cipher = aead::Aes256GcmSiv::new(&key.as_symmetric_key().key_256);
 
-//     // let mut iv_bytes = vec![0u8; 12];
-//     // rng.fill_bytes(&mut iv_bytes);
 
-//     // let nonce = aead::Nonce::from_slice(&iv_bytes);
+pub fn symmetric_encrypt_inner<const IN: usize, const OUT: usize>(
+    data: &[u8; IN],
+    key: &impl AsSymmetricKey,
+    rng: &mut (impl RngCore + CryptoRng),
+) -> [u8; OUT] {
+    let cipher = aead::Aes256GcmSiv::new(&key.as_symmetric_key().key_256);
 
-//     // let buffer = arr![1; U6]; 
+    let mut buffer = arrayvec::ArrayVec::<u8, OUT>::new();
 
-//     // // Tag is appended at the end
-//     // let mut ciphertext = cipher.encrypt_in_place(nonce, session_data).unwrap();
+    // Copy session data into the buffer
+    buffer.try_extend_from_slice(data.as_slice()).unwrap();
 
-//     // // We put the nonce at the end
-//     // ciphertext.append(&mut iv_bytes);
+    let mut iv_bytes = [0u8; 12];
+    rng.fill_bytes(&mut iv_bytes);
 
-//     // ciphertext
+    let nonce = aead::Nonce::from_slice(&iv_bytes);
 
-//     // Ok(())
+    // Perform encryption in place
+    cipher.encrypt_in_place(nonce, &[], &mut buffer).unwrap();
 
-//     todo!()
-// }
+    buffer.try_extend_from_slice(&iv_bytes).unwrap();
+
+    buffer.into_inner().unwrap()
+}
+
+pub use paste;
+
+// Append nonce at the end
+    // buffer[$size..$size + 12].copy_from_slice(&iv_bytes);
+#[macro_export]
+macro_rules! generate_symmetric_encrypt {
+    ($($size:literal),*) => {
+        $(
+        $crate::paste::paste! {
+            pub fn [<symmetric_encrypt_ $size>] (
+                data: &[u8; $size],
+                key: &impl $crate::AsSymmetricKey,
+                rng: &mut (impl rand::RngCore + rand::CryptoRng),
+            ) -> [u8; $size + 28] {
+                $crate::symmetric_encrypt_inner(data, key, rng)
+            }
+        }
+        )*
+    };
+}
 
 pub fn symmetric_encrypt(
     session_data: &[u8],
@@ -344,6 +362,88 @@ pub fn symmetric_decrypt(
     // );
 
     Err(DecryptFailed)
+}
+
+pub fn symmetric_decrypt_new(
+    encrypted: &[u8; 36],
+    keys: &[impl AsSymmetricKey],
+) -> Result<[u8; 8], DecryptFailed> {
+    let encrypted_len = encrypted.len();
+
+    let iv = encrypted
+        .get((encrypted_len - 12)..(encrypted_len))
+        .unwrap();
+    let nonce = aead::Nonce::from_slice(iv);
+
+    for key in keys {
+        let cipher = aead::Aes256GcmSiv::new(&key.as_symmetric_key().key_256);
+
+        let mut buffer = arrayvec::ArrayVec::<u8, 24>::new();
+        buffer.try_extend_from_slice(&encrypted[..24]).unwrap();
+
+        if cipher.decrypt_in_place(nonce, &[], &mut buffer).is_ok() {
+            let decrypted = buffer[0..8].try_into().unwrap();
+
+            return Ok(decrypted);
+        }
+    }
+
+    // debug!(
+    //     "Failed to decrypt with keys: {:?}",
+    //     keys.iter()
+    //         .map(|k| k.as_symmetric_key())
+    //         .collect::<Vec<_>>()
+    // );
+
+    Err(DecryptFailed)
+}
+
+pub fn symmetric_decrypt_inner<const IN: usize, const T: usize, const OUT: usize>(
+    encrypted: &[u8; IN],
+    keys: &[impl AsSymmetricKey],
+) -> Result<[u8; OUT], DecryptFailed> {
+    let iv = encrypted
+        .get(T..)
+        .unwrap();
+    let nonce = aead::Nonce::from_slice(iv);
+
+    for key in keys {
+        let cipher = aead::Aes256GcmSiv::new(&key.as_symmetric_key().key_256);
+
+        let mut buffer = arrayvec::ArrayVec::<u8, T>::new();
+        buffer.try_extend_from_slice(&encrypted[..T]).unwrap();
+
+        if cipher.decrypt_in_place(nonce, &[], &mut buffer).is_ok() {
+            let decrypted = buffer[0..OUT].try_into().unwrap();
+
+            return Ok(decrypted);
+        }
+    }
+
+    // debug!(
+    //     "Failed to decrypt with keys: {:?}",
+    //     keys.iter()
+    //         .map(|k| k.as_symmetric_key())
+    //         .collect::<Vec<_>>()
+    // );
+
+    Err(DecryptFailed)
+}
+
+#[macro_export]
+macro_rules! generate_symmetric_decrypt {
+    ($($size:expr),*) => {
+        $(
+        $crate::paste::paste! {
+            pub fn [<symmetric_decrypt_ $size>] (
+                encrypted: &[u8; $size + 16 + 12],
+                keys: &[impl $crate::AsSymmetricKey],
+            ) -> Result<[u8; $size], $crate::DecryptFailed> {
+                $crate::symmetric_decrypt_inner::<{$size + 28}, {$size + 16}, $size>(encrypted, keys)
+            }
+        }
+        )*
+    };
 }
 
 #[cfg(test)]
@@ -434,6 +534,27 @@ mod tests {
     //     assert!(!verify_signature(data, &signature, &other_key))
     // }
 
+    generate_symmetric_encrypt!(8, 32);
+    generate_symmetric_decrypt!(8);
+
+    #[test]
+    fn encrypt_decrypt_in_place() {
+        let mut seed = [0u8; 32];
+        OsRng.fill(&mut seed);
+        let mut rng = StdRng::from_seed(seed);
+
+        let key = create_symmetric_key(&mut rng);
+        
+        let some_bytes: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+
+        let encrypted: [u8; 36] = symmetric_encrypt_8(&some_bytes, &key, &mut rng);
+
+        let data_decrypt = symmetric_decrypt_8(&encrypted, &[key]).unwrap();
+
+        assert_eq!(some_bytes.as_slice(), &data_decrypt);
+    }
+
+    
     #[test]
     fn encrypt_decrypt() {
         let mut seed = [0u8; 32];
@@ -443,6 +564,7 @@ mod tests {
         let key = create_symmetric_key(&mut rng);
 
         let data = "this_is_some_amount_of_data_that_I_encrypt";
+        
 
         let encrypted = symmetric_encrypt(data.as_bytes(), &key, &mut rng);
 

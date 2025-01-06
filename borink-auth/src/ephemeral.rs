@@ -1,4 +1,5 @@
 
+use borink_crypto::{generate_symmetric_decrypt, generate_symmetric_encrypt};
 // trait ByteSerial {
 //     fn serialize(&self)
 // }
@@ -12,5 +13,12 @@ struct Ephemeral<const N: usize, T> {
 }
 
 struct EphemeralLogin {
-    eph: Ephemeral<LOGIN_SERVER_STATE_LEN>
+    eph: Ephemeral<LOGIN_SERVER_STATE_LEN, u8>
+}
+
+generate_symmetric_encrypt!(192);
+generate_symmetric_decrypt!(192);
+
+fn encrypt_login() {
+    let encrypted = symmetric_encrypt_192(data, key, rng);
 }
