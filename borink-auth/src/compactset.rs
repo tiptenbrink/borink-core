@@ -35,6 +35,8 @@ pub trait AtomicBitSet {
     fn create_up_to(&self, n: u64);
 
     fn exists(&self, n: u64) -> bool;
+
+    fn reset(&self);
 }
 
 const SMALL_SIZE: usize = 32;
@@ -101,6 +103,15 @@ impl AtomicBitSet for AtomicDynamicBitSet {
     fn max_n(&self) -> u64 {
         self.max
     }
+    
+    fn reset(&self) {
+        self.initial.reset();
+        if let Some(further) = self.further.get() {
+            for (_, atom) in further.iter() {
+                atom.reset();
+            }
+        }
+    }
 }
 
 impl AtomicBitSet for AtomicSmallBitSet {
@@ -132,6 +143,12 @@ impl AtomicBitSet for AtomicSmallBitSet {
 
         atom.exists(index_in_atom)
     }
+    
+    fn reset(&self) {
+        for a in &self.atoms {
+            a.reset();
+        }
+    }
 }
 
 impl AtomicBitSet for AtomicU64BitSet {
@@ -151,6 +168,10 @@ impl AtomicBitSet for AtomicU64BitSet {
 
     fn exists(&self, n: u64) -> bool {
         self.exists(n)
+    }
+    
+    fn reset(&self) {
+        self.0.store(0, atomic::Ordering::Relaxed);
     }
 }
 

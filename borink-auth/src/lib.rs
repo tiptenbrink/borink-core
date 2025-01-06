@@ -3,6 +3,8 @@
 mod ephemeral;
 mod compactset;
 mod login;
+use std::sync::atomic::{self, AtomicU64};
+
 use compactset::{AtomicSmallBitSet, CompactSet, AtomicBitSet};
 use fixedstr::zstr;
 use opaque_borink::server::{PasswordFile};
@@ -12,12 +14,39 @@ struct Database {
 
 }
 
+struct UserState {
+    counter: AtomicU64,
+    seen: AtomicSmallBitSet
+}
+
+impl UserState {
+    fn new() -> Self {
+        Self {
+            counter: AtomicU64::new(0),
+            seen: AtomicSmallBitSet::new()
+        }
+    }
+
+    fn next(&self) -> u64 {
+        self.counter.fetch_add(1, atomic::Ordering::Relaxed)
+    }
+
+    fn seen(&self, num: u64) -> bool {
+        CompactSet::exists(&self.seen, num)
+    }
+
+    fn reset(&self) {
+        self.counter.store(0, atomic::Ordering::Relaxed);
+        self.seen.reset();
+    }
+}
+
 struct User {
     user_id: zstr<256>,
-    counter: AtomicSmallBitSet,
+    state: UserState,
     password_file: PasswordFile,
     // For use with other things
-    metadata: [u8; 184]
+    metadata: [u8; 172]
 }
 
 // This will be to support webauthn/passkeys in the future
@@ -76,12 +105,12 @@ mod test {
         let dummy_pw_file = "LJ0rg3mSZ-x1tDbobI0xvroBjAPQ5fnAgrnEmxc67giA0XDjR8pJaOuNGlWtRku5Hk57yBlL6YrjBUQJ--7OMhPZra40WvmWSu7yT8s-CBAsE0jobWK-9qXk3xDv7TlK-g_TF3JzR3s8MntBWjIuN5Ii7Le93coLGLvm7xjQtuYHbszz3HBv-gBu_xlj7YitpgyQzYpcJGslbezqxEvZz4Jz0R64np94JBDibI7syTw13ZJ74tbjWiJbvwvKb5a-";
         let dummy_pw_file = decode_string(dummy_pw_file).unwrap();
         let dummy_pw_file = PasswordFile::deserialize(&dummy_pw_file).unwrap();
-        let meta_buf = [0u8; 184];
+        let meta_buf = [0u8; 172];
 
         User {
             user_id: zstr::make(&s),
             password_file: dummy_pw_file,
-            counter: AtomicSmallBitSet::new(),
+            state: UserState::new(),
             metadata: meta_buf
         }
     }

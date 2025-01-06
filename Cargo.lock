@@ -233,6 +233,7 @@ dependencies = [
  "opaque-borink",
  "papaya",
  "rand",
+ "thiserror",
 ]
 
 [[package]]

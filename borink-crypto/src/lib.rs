@@ -255,6 +255,7 @@ pub fn symmetric_encrypt_const<const N: usize>(
 
 pub fn symmetric_encrypt_inner<const IN: usize, const OUT: usize>(
     data: &[u8; IN],
+    associated_data: &[u8],
     key: &impl AsSymmetricKey,
     rng: &mut (impl RngCore + CryptoRng),
 ) -> [u8; OUT] {
@@ -271,7 +272,7 @@ pub fn symmetric_encrypt_inner<const IN: usize, const OUT: usize>(
     let nonce = aead::Nonce::from_slice(&iv_bytes);
 
     // Perform encryption in place
-    cipher.encrypt_in_place(nonce, &[], &mut buffer).unwrap();
+    cipher.encrypt_in_place(nonce, associated_data, &mut buffer).unwrap();
 
     buffer.try_extend_from_slice(&iv_bytes).unwrap();
 
@@ -289,10 +290,11 @@ macro_rules! generate_symmetric_encrypt {
         $crate::paste::paste! {
             pub fn [<symmetric_encrypt_ $size>] (
                 data: &[u8; $size],
+                associated_data: &[u8],
                 key: &impl $crate::AsSymmetricKey,
                 rng: &mut (impl rand::RngCore + rand::CryptoRng),
             ) -> [u8; $size + 28] {
-                $crate::symmetric_encrypt_inner(data, key, rng)
+                $crate::symmetric_encrypt_inner(data, associated_data, key, rng)
             }
         }
         )*
@@ -400,6 +402,7 @@ pub fn symmetric_decrypt_new(
 
 pub fn symmetric_decrypt_inner<const IN: usize, const T: usize, const OUT: usize>(
     encrypted: &[u8; IN],
+    associated_data: &[u8],
     keys: &[impl AsSymmetricKey],
 ) -> Result<[u8; OUT], DecryptFailed> {
     let iv = encrypted
@@ -413,7 +416,7 @@ pub fn symmetric_decrypt_inner<const IN: usize, const T: usize, const OUT: usize
         let mut buffer = arrayvec::ArrayVec::<u8, T>::new();
         buffer.try_extend_from_slice(&encrypted[..T]).unwrap();
 
-        if cipher.decrypt_in_place(nonce, &[], &mut buffer).is_ok() {
+        if cipher.decrypt_in_place(nonce, associated_data, &mut buffer).is_ok() {
             let decrypted = buffer[0..OUT].try_into().unwrap();
 
             return Ok(decrypted);
@@ -437,9 +440,10 @@ macro_rules! generate_symmetric_decrypt {
         $crate::paste::paste! {
             pub fn [<symmetric_decrypt_ $size>] (
                 encrypted: &[u8; $size + 16 + 12],
+                associated_data: &[u8],
                 keys: &[impl $crate::AsSymmetricKey],
             ) -> Result<[u8; $size], $crate::DecryptFailed> {
-                $crate::symmetric_decrypt_inner::<{$size + 28}, {$size + 16}, $size>(encrypted, keys)
+                $crate::symmetric_decrypt_inner::<{$size + 28}, {$size + 16}, $size>(encrypted, associated_data, keys)
             }
         }
         )*
@@ -547,9 +551,9 @@ mod tests {
         
         let some_bytes: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
 
-        let encrypted: [u8; 36] = symmetric_encrypt_8(&some_bytes, &key, &mut rng);
+        let encrypted: [u8; 36] = symmetric_encrypt_8(&some_bytes, &[], &key, &mut rng);
 
-        let data_decrypt = symmetric_decrypt_8(&encrypted, &[key]).unwrap();
+        let data_decrypt = symmetric_decrypt_8(&encrypted, &[], &[key]).unwrap();
 
         assert_eq!(some_bytes.as_slice(), &data_decrypt);
     }
