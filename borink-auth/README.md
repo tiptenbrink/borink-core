@@ -4,7 +4,7 @@
 We use some assumptions:
 - On AWS, for $10-20k a year, you can get 100GB worth of memory and 32 vCPUs. Assuming 64 kB of memory per user, this could serve 1 billion accounts. 
 
-Per month, this is 83 CPU-ms per user. We assume a heavy use scenario in which users make on average 10 requests per day, or 300 requests per month. This is 83/300 CPU-ms per request.
+Per month, this is 83 CPU-ms per user. We assume a heavy use scenario in which users make on average 10 requests per day, or 300 requests per month. This is 83/300 CPU-ms per request. That is around 280 us.
 
 ### user login with OPAQUE
 

@@ -227,6 +227,7 @@ dependencies = [
 name = "borink-auth"
 version = "0.1.0"
 dependencies = [
+ "arrayvec",
  "borink-crypto",
  "boxcar",
  "fixedstr",
@@ -1361,9 +1362,9 @@ checksum = "1261fe7e33c73b354eab43b1273a57c8f967d0391e80353e51f764ac02cf6775"
 
 [[package]]
 name = "opaque-borink"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02cc7b503fea146cd827ef1fd7ad56d3cb173a5fd642ce047183690dab40904c"
+checksum = "db1530cb29c883b1d3096257a5f4776b0a53be561fe9b953b947681172da76b4"
 dependencies = [
  "argon2",
  "base64",

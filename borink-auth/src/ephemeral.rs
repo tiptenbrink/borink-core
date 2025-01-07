@@ -1,9 +1,12 @@
 
-use borink_crypto::{generate_symmetric_decrypt, generate_symmetric_encrypt, AsSymmetricKey, DecryptFailed};
+use borink_crypto::{create_symmetric_key, generate_symmetric_decrypt, generate_symmetric_encrypt, AsSymmetricKey, DecryptFailed};
+use fixedstr::str256;
 use opaque_borink::server::LOGIN_SERVER_STATE_LEN;
 use rand::thread_rng;
 
 use std::marker::PhantomData;
+
+use crate::USER_ID_LEN;
 
 
 pub trait EphemeralType<const N: usize> {
@@ -43,6 +46,15 @@ impl AsSymmetricKey for EphemeralKey {
     }
 }
 
+impl EphemeralKey {
+    pub fn create() -> Self {
+        let mut rng = thread_rng();
+        let key = create_symmetric_key(&mut rng);
+
+        Self(key)
+    }
+}
+
 pub fn encrypt_login(login_server_state: &[u8; LOGIN_SERVER_STATE_LEN], login_associated: &[u8], key: &EphemeralKey) -> LoginEphemeral {
     let mut rng = thread_rng();
 
@@ -51,6 +63,7 @@ pub fn encrypt_login(login_server_state: &[u8; LOGIN_SERVER_STATE_LEN], login_as
     Ephemeral::new(encrypted)
 }
 
+// FIXME use the one from the crypto crate
 pub const ENCRYPT_ADD: usize = 28;
 
 pub fn decrypt_login(eph: &LoginEphemeral, login_associated: &[u8], keys: &[EphemeralKey]) -> Result<[u8; LOGIN_SERVER_STATE_LEN], DecryptFailed> {
@@ -59,8 +72,4 @@ pub fn decrypt_login(eph: &LoginEphemeral, login_associated: &[u8], keys: &[Ephe
     Ok(decrypted)
 }
 
-// trait Verified<const N: usize> {
-//     type Eph: EphemeralType<N>;
 
-
-// }
